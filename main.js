@@ -350,16 +350,16 @@ function draw() {
 	window.requestAnimationFrame(draw);
 }
 
-// Scales thrust vector by a preset arbitrary amount to illustrate it
-function renderThrust(ctx, position, dir) {
+// Scales thrust vector by a preset arbitrary amount to illustrate it, not scaled
+function renderThrust(ctx, position, dir, f) {
 	const { x, y } = position;
 	const { x: vx, y: vy } = dir;
 
 	let v = add(position, dir);
 	const mag = distance(x, y, v.x, v.y);
 	const unit = {x: vx / mag, y: vy / mag};
-	unit.x *= 20;
-	unit.y *= 20;
+	unit.x *= 10 * f;
+	unit.y *= 10 * f;
 	v = add({x, y}, {x: unit.x, y: unit.y});
 
 	ctx.strokeStyle = 'yellow';
@@ -384,20 +384,22 @@ let trace = [];
 
 rect.x = 300;
 rect.y = 300;
+rect.w = 20;
+rect.h = 80;
 rect.rot = 0;
 rect.L = 0.1; // angular momentum, in degrees, IRL it's kilogram meters squared per second (kg-m^2/sec)
+
+const thrusters = [
+	{ position: {x: 0, y: 0}, dir: {x: -1, y: 0}, f: 0},
+	{ position: {x: rect.w, y: 0}, dir: {x: 1, y: 0}, f: 0},
+	{ position: {x: rect.w / 2, y: rect.h}, dir: {x: 0, y: -1}, f: 0},
+];
 
 let lastTime = 0;
 function render(t) {
 	const frameTime = t - lastTime;
 	lastTime = t;
 	const dt = frameTime / 1000;
-
-	const thrusters = [
-		{ position: {x: 0, y: 0}, dir: {x: 0, y: 1}, f: 10},
-		{ position: {x: rect.w, y: rect.h}, dir: {x: 0, y: -1}, f: 10},
-		{ position: {x: rect.w, y: rect.h}, dir: {x: 0, y: -1}, f: 5},
-	];
 
 	ctx.fillStyle = '#222';
 	ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -418,7 +420,13 @@ function render(t) {
 	let angularVelocity = thrusters.reduce((angVel, thruster) => {
 		const { position, dir, f } = thruster;
 
-		const r = {x: (rect.w / 2) - position.x, y: (rect.h / 2) - position.y};
+		// Thruster positions are relative to the rect.
+		const tPos = add({
+			x: rect.x,
+			y: rect.y
+		}, position);
+
+		const r = {x: tPos.x - (rect.w / 2), y: tPos.y - (rect.h / 2)};
 		angVel += f * cross(dir, r);
 
 		return angVel;
@@ -448,8 +456,8 @@ function render(t) {
 	ctx.fillStyle = "yellow";
 	ctx.fillRect((rect.w / 2) - 2, (rect.h / 2) - 2, 4, 4);
 
-	thrusters.map(({position, dir}) => {
-		renderThrust(ctx, position, dir);
+	thrusters.map(({position, dir, f}) => {
+		renderThrust(ctx, position, dir, f);
 	});
 
 	// trace.push({
@@ -462,6 +470,10 @@ function render(t) {
 
 	// reset transform matrix to identity matrix
 	ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+	ctx.font = '20px serif';
+	ctx.fillText(`L: ${angularVelocity}`, rect.x + rect.w + 20, rect.y);
+	ctx.fillText(`${rect.x}, ${rect.y}`, rect.x + rect.w + 20, rect.y + 20);
 
 	// ctx.translate(-(rect.w / 2), -(rect.h / 2));
 	// ctx.beginPath();
@@ -476,6 +488,48 @@ function render(t) {
 }
 
 window.requestAnimationFrame(render);
+
+const leftThruster = thrusters[0];
+const rightThruster = thrusters[1];
+const bottomThruster = thrusters[2];
+
+document.addEventListener('keydown', ({ key }) => {
+	switch (key) {
+		case 'q':
+		case 'Q':
+			leftThruster.f = 10;
+			break;
+
+		case 'e':
+		case 'E':
+			rightThruster.f = 10;
+			break;
+
+		case 'w':
+		case 'W':
+			bottomThruster.f = 10;
+			break;
+	}
+});
+
+document.addEventListener('keyup', ({ key }) => {
+	switch (key) {
+		case 'q':
+		case 'Q':
+			leftThruster.f = 0;
+			break;
+
+		case 'e':
+		case 'E':
+			rightThruster.f = 0;
+			break;
+
+		case 'w':
+		case 'W':
+			bottomThruster.f = 0;
+			break;
+	}
+});
 
 function find_tangents_through_point(circle_center, circle_radius, point) {
 	// find the direction from the point to the center of the circle

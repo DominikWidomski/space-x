@@ -1,5 +1,46 @@
 "use strict";
 
+//* mocks for running this in Node
+if (!global.document) {
+	global.document = {
+		querySelector: (selector) => {
+			if (selector === '.js-playarea') {
+				return {
+					width: 400,
+					height: 400,
+					getContext: () => ({
+						clearRect: () => {},
+						fillRect: () => {},
+						translate: () => {},
+						rotate: () => {},
+						beginPath: () => {},
+						moveTo: () => {},
+						lineTo: () => {},
+						stroke: () => {},
+						setTransform: () => {},
+						fillText: () => {},
+					})
+				};
+			}
+		},
+		addEventListener: () => {}
+	};
+}
+
+if (!global.window) {	
+	let windowRequestAnimationFrameCalled = false;
+	global.window = {
+		// will only call it once
+		requestAnimationFrame: (callback) => {
+			if (!windowRequestAnimationFrameCalled) {
+				windowRequestAnimationFrameCalled = true;
+				callback(1000 / 60);
+			}
+		}
+	};
+}
+//*/
+
 const __DEBUG__ = false;
 const canvas = document.querySelector('.js-playarea');
 const ctx = canvas.getContext('2d');
@@ -17,6 +58,23 @@ function dot(v1, v2) {
 function add(v1, v2) {
 	return {x: v1.x + v2.x, y: v1.y + v2.y};
 }
+
+// subtract 2D vectors
+const subtract = (v1, v2) => ({
+	x: v2.x - v1.x,
+	y: v2.y - v1.y
+});
+
+// 2D Vector cross product
+const cross = (a, b) => {
+	return (a.x * b.x) - (a.y * b.y);
+};
+
+const v = require("./src/utils/vectorMaths");
+
+const a = {x: 1, y: 1};
+const b = {x: 1, y: 1};
+console.log(v`${a} + ${b}`);
 
 const vertexScale = 8;
 function drawVertex(x, y) {
@@ -157,17 +215,6 @@ function renderThrust(ctx, position, dir, f) {
 
 const degToRad = deg => deg * Math.PI / 180;
 
-// 2D Vector cross product
-const cross = (a, b) => {
-	return (a.x * b.x) - (a.y * b.y);
-};
-
-// subtract 2D vectors
-const subtract = (v1, v2) => ({
-	x: v2.x - v1.x,
-	y: v2.y - v1.y
-});
-
 let trace = [];
 
 rect.x = 300;
@@ -217,6 +264,7 @@ function render(t) {
 		const r = {x: tPos.x - (rect.w / 2), y: tPos.y - (rect.h / 2)};
 		angVel += f * cross(dir, r);
 
+		console.log(angVel);
 		return angVel;
 	}, 0);
 	angularVelocity *= dt;
